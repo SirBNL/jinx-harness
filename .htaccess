@@ -1,0 +1,38 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  Jinx Harness — Apache configuration (shared hosting / cPanel)
+#
+#  Everything except index.cgi is blocked from the web; every public URL is
+#  routed through the CGI gateway which talks to the local daemon.
+# ═══════════════════════════════════════════════════════════════════════════
+Options -Indexes
+
+<IfModule mod_cgi.c>
+  Options +ExecCGI
+</IfModule>
+<IfModule mod_cgid.c>
+  Options +ExecCGI
+</IfModule>
+AddHandler cgi-script .cgi
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # internal data (config, SQLite db, logs) is never web-readable
+  RewriteRule ^(portable|dist|bin|node_modules)(/|$) - [F,L]
+  RewriteRule (^|/)\.env - [F,L]
+  RewriteRule (^|/)\.htaccess - [F,L]
+  RewriteRule \.(db|log|cjs|json|md|tar\.xz|wasm)$ - [F,L]
+
+  # everything public goes through the gateway
+  RewriteRule ^$ index.cgi [L]
+  RewriteCond %{REQUEST_URI} !index\.cgi$
+  RewriteRule ^(.*)$ index.cgi [L]
+</IfModule>
+
+# no mod_rewrite? at least keep secrets secret
+<FilesMatch "^\.(env|htaccess)$">
+  Require all denied
+</FilesMatch>
+<FilesMatch "\.(db|log|cjs|json|tar\.xz|wasm)$">
+  Require all denied
+</FilesMatch>

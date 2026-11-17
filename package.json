@@ -1,0 +1,29 @@
+{
+  "name": "jinx-harness",
+  "version": "1.0.0",
+  "description": "Give any model hands. Self-hosted 24/7 Telegram agent runtime — bring your own OpenAI-compatible provider, deploy to shared hosting with one zip and a one-time web wizard. No build, no npm install, no telemetry.",
+  "main": "app.js",
+  "license": "MIT",
+  "private": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node app.js",
+    "check": "node app.js --check"
+  },
+  "optionalDependencies": {
+    "sql.js": "^1.13.0"
+  },
+  "keywords": [
+    "telegram-bot",
+    "ai-agent",
+    "agent-runtime",
+    "openai-compatible",
+    "self-hosted",
+    "cpanel",
+    "shared-hosting",
+    "no-build",
+    "tools"
+  ]
+}

@@ -1,0 +1,13 @@
+# runtime data & secrets — never commit
+portable/.env
+portable/data/*
+!portable/data/.gitkeep
+
+# self-extracted / uploaded Node runtime
+bin/
+node.tar.xz
+
+# general
+node_modules/
+*.log
+.DS_Store
