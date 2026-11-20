@@ -13,7 +13,9 @@
 //  Env knobs (portable/.env or real environment — see README.md):
 //   BOT_TOKEN, ADMIN_ID, JINX_API_KEY, JINX_BASE_URL, JINX_MODEL,
 //   JINX_BRAND_NAME, JINX_MAKER_NAME, JINX_PERSONA, JINX_ALIAS,
-//   WEBHOOK_SECRET, TIMEZONE, DEFAULT_LANG, PORTABLE_PORT, PORTABLE_BASE_PATH
+//   WEBHOOK_SECRET, TIMEZONE, DEFAULT_LANG, PORTABLE_PORT, PORTABLE_BASE_PATH,
+//   JINX_MCP_SERVERS, JINX_MCP_TIMEOUT_MS        (MCP client — docs/MCP.md)
+//   JINX_PUBLIC_URL                               (public CGI base — MCP OAuth)
 // ═══════════════════════════════════════════════════════════════════════════
 'use strict';
 
@@ -119,8 +121,9 @@ if (!configured) {
 }
 
 // ── FULL BOOT ──────────────────────────────────────────────────────────────
-console.log('[jinx-harness] v1.0.0 (engine 9.3.0-oss) booting — Node ' + process.version);
+console.log('[jinx-harness] v2.1.0 (engine 9.3.1-oss + MCP bridge & OAuth) booting — Node ' + process.version);
 console.log('[jinx-harness] database: portable/data/jinx.db • panel: /admin?t=… • logs: portable/data/logs/');
+console.log('[jinx-harness] MCP: JINX_MCP_SERVERS / portable/mcp.json — or just tell the agent to connect a server (mcp_connect, owner-approved) • docs/MCP.md');
 
 // Shared hosts with a low RLIMIT_AS cannot reserve WebAssembly memory, which
 // breaks Node's internal HTTP engine (undici/llhttp-wasm) on every fetch().

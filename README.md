@@ -14,7 +14,9 @@
 [![Build step](https://img.shields.io/badge/build%20step-0-00ADD8?style=flat-square)](#install-in-3-steps--no-skills-required)
 [![Deploy](https://img.shields.io/badge/deploy-upload--only-ff6b35?style=flat-square)](#install-in-3-steps--no-skills-required)
 [![Provider](https://img.shields.io/badge/provider-bring%20your%20own-8e44ad?style=flat-square)](#which-ai-should-i-plug-in)
-[![Tools](https://img.shields.io/badge/tools-60%2B-e74c3c?style=flat-square)](#the-toolbox)
+[![MCP](https://img.shields.io/badge/MCP-client-2ea44f?style=flat-square)](#-mcp--plug-the-whole-tool-internet-into-your-agent)
+[![Tools](https://img.shields.io/badge/tools-60%2B%20%2B%20MCP-e74c3c?style=flat-square)](#the-toolbox)
+[![Tests](https://img.shields.io/badge/tests-49%20green%20%2B%20E2E-brightgreen?style=flat-square)](#-tested-like-it-matters)
 
 [⬇️ **Download**](../../releases/latest) · [🚀 3-step install](#install-in-3-steps--no-skills-required) · [💬 What it can do](#it-doesnt-just-chat-it-works) · **[🇮🇷 فارسی](#فارسی--خلاصه-برای-کاربر-عادی)**
 
@@ -32,6 +34,7 @@
 
 - 💬 بهش پیام می‌دی مثل یک آدم — **کار انجام می‌ده، نه فقط حرف می‌زنه**
 - 🔍 خودش تحقیق می‌کنه (۲۰ موتور جست‌وجو)، گزارش می‌نویسه، فایل می‌سازه
+- 🔌 **نسخه ۲: به هر سرور MCP وصل می‌شه** — هزاران ابزار آماده (جست‌وجو، دیتابیس، گیتهاب و…) بدون یک خط کد
 - 🧪 کد می‌نویسه، داخل سندباکس اجرا می‌کنه، خطا رو می‌بینه، درستش می‌کنه
 - ⏰ «هر روز ساعت ۸ اخبار AI رو بفرست» — خودش کار زمان‌بندی‌شده می‌سازه و تا همیشه اجراش می‌کنه
 - 🧠 حافظه داره — چیزی که ماه پیش گفتی یادش می‌مونه
@@ -85,7 +88,7 @@ And no, it doesn't phone home: no analytics, no trackers, no "anonymous statisti
 
 > **If you can upload a photo and fill in a form, you can run this.**
 
-**Step 1 — Upload.** Download `jinx-harness-v1.0.0.zip` from
+**Step 1 — Upload.** Download `jinx-harness-v2.1.0.zip` from
 [**Releases**](../../releases/latest). In your hosting control panel
 (cPanel → *File Manager*), upload it into `public_html` and click **Extract**.
 
@@ -165,6 +168,7 @@ Models get replaced every quarter. **The harness endures.**
 | **Agentic loop** | Up to **40 tool iterations per turn**, with checkpoint/resume — crash mid-task and it picks up where it died |
 | **Sub-agents** | `delegate` spawns focused child agents with their own budget, for research and coding side-quests |
 | **60+ tools** | Research, browsing, sandboxed code, files, data, scheduling, messaging, Google suite, skills… full catalog below |
+| **MCP client (v2)** | Connect any Model Context Protocol server — tools appear as first-class `mcp_*` tools with session management, caching and redaction |
 | **20 research engines** | 17 keyless: Wikipedia, Bing (+News), Google News, DuckDuckGo (html/lite), Brave, Mojeek, SearXNG, Stack Overflow, GitHub, Hacker News, arXiv, Crossref, Semantic Scholar, Openverse, Wikimedia Commons — premium (Tavily, Serper, Exa, Brave-API) activate by pasting a key |
 | **Real code sandbox** | `run_js` executes in an actual **QuickJS/WASM** virtual machine, plus `run_tests` and `run_project` |
 | **Virtual browser** | `browser_navigate`, `browser_click`, `browser_type`, `browser_scroll`, whole-site crawling |
@@ -183,6 +187,7 @@ Models get replaced every quarter. **The harness endures.**
 | Group | Tools |
 |---|---|
 | **Research** | 20 engines — see table above |
+| **MCP (v2)** | any Model Context Protocol server over Streamable HTTP — every tool arrives as `mcp_<server>_<tool>` |
 | **Virtual browser** | `browser_navigate`, `browser_click`, `browser_type`, `browser_scroll`, `crawl_site` |
 | **Code** | `run_js` (QuickJS/WASM sandbox), `run_tests`, `run_project` |
 | **Files & projects** | `create_file`, `write_files`, `move_file`, `delete_files`, `project_create` |
@@ -195,6 +200,84 @@ Models get replaced every quarter. **The harness endures.**
 
 Bot commands for humans: `/help` `/status` `/memory` `/tasks` `/about` `/cancel` `/stop` — plus `/admin` for the panel link.
 
+<a id="-mcp--plug-the-whole-tool-internet-into-your-agent"></a>
+
+## 🔌 MCP — plug the whole tool internet into your agent
+
+**v2 ships a built-in [Model Context Protocol](https://modelcontextprotocol.io) client.** MCP is the open standard that turned tools into something you *install* instead of something you code — there are thousands of ready-made MCP servers (search, databases, GitHub, Git, filesystem, Playwright, Stripe, …) and they all speak the same protocol.
+
+One line in `portable/.env` and every tool on a server becomes a first-class tool of your agent:
+
+```ini
+JINX_MCP_SERVERS=fetch=https://mcp.example.com/mcp, github=https://…/mcp
+# optional auth per server:
+JINX_MCP_AUTH_GITHUB=Bearer ghp_…
+```
+
+That's it. The model now sees `mcp_fetch_search`, `mcp_github_create_issue`, … next to its built-in 60+ tools — same loop, same budgets, same approval gates. Highlights:
+
+- **Streamable HTTP transport** (the current MCP standard) with automatic session renewal and a registry cache so restarts are instant
+- **Works with any model** — tools are injected into the same tool loop the engine already runs, so even models without fancy native tool-calling get the same hands
+- **Safety rails** — 48 KB output cap per tool result, 300-tool cap, auth never logged, everything the non-admin approval gate already covers
+- **Meta tools** — `mcp_servers` (status list) and `mcp_refresh` (re-scan) let the model itself stay in sync after you edit the config
+- Full guide with mcp.json options, timeouts and provider examples: **[docs/MCP.md](docs/MCP.md)** (فارسی)
+
+### 🤝 v2.1 — the agent connects servers itself (with your permission)
+
+Don't edit any file. Just tell your bot:
+
+> **"Connect to https://mcp.higgsfield.ai/mcp"**
+
+What happens next:
+
+1. 🔐 A real **permission card** appears in the chat — Allow / Deny / "don't ask again for this run". The connect does **not** proceed until you decide (admin-only, 8-minute window, decisions logged). This is the engine's security layer, not a prompt suggestion the model could skip.
+2. The agent preflights the server and figures out what it needs:
+   - **no auth** → connected instantly, tools registered
+   - **API key** → it asks you for the key, then tries `Authorization: Bearer` and `X-Api-Key`
+   - **OAuth login** (Higgsfield / Runway / HeyGen style) → it sends you a login link (PKCE + Dynamic Client Registration, per the MCP authorization spec). You sign in with your account; the callback lands on your own agent (`/oauth/mcp/callback` — set `JINX_PUBLIC_URL`), the token is stored chmod-600, and refreshed automatically forever after. If your browser can't reach the callback, copy the final URL and paste it into the chat — the agent finishes the exchange.
+3. Approved servers persist (`portable/data/mcp-dynamic.json`) and survive restarts; `mcp_disconnect` removes them on request.
+
+Every shape of MCP server works — plain, API-key, and full OAuth — because "give any model hands" deserved the whole tool internet, not just 60 built-ins. To forbid self-connect entirely on a paranoid host: `JINX_MCP_ALLOW_CONNECT=0`.
+
+<a id="how-jinx-compares"></a>
+
+## 📋 How Jinx compares
+
+The 2026 agent landscape is rich — and mostly built for people who already have a VPS. Honest positioning:
+
+| | **Jinx Harness** | OpenClaw | Hermes Agent | E2B / Daytona |
+|---|---|---|---|---|
+| **Runs on shared hosting (cPanel, no root)** | ✅ designed for it | ❌ needs a VPS | ❌ needs a VPS | n/a (cloud service) |
+| **Deploy** | upload one zip + web wizard | CLI install + systemd | curl installer + gateway | SDK + account |
+| **Provider** | any OpenAI-compatible, yours | many, yours | many, yours | — |
+| **MCP client** | ✅ built-in + self-connect with permission gate + OAuth logins | ✅ | ✅ | — |
+| **npm install on the host** | **0 packages** | yes | yes (uv/pnpm) | — |
+| **Code sandbox** | QuickJS/WASM inside the same process | shell on the host | Docker/SSH/Modal/Daytona | cloud microVMs |
+| **Telegram-first UX** | ✅ rich widgets, 24/7 | ✅ | ✅ | — |
+| **Telemetry** | zero | zero | zero | service logs |
+| **Sweet spot** | cheapest possible 24/7 personal agent | always-on personal assistant | self-improving power user agent | elastic code execution |
+
+Don't read this as "X is bad" — they're excellent projects. Read it as: **if your starting point is a $1 cPanel host and a Telegram account, Jinx is the only row that boots.**
+
+<a id="-tested-like-it-matters"></a>
+
+## 🧪 Tested like it matters
+
+```bash
+node test/run-all.cjs    # or: npm test
+```
+
+Three layers, all offline, all in-repo:
+
+| Layer | What it proves | Checks |
+|---|---|---|
+| **Static** | every file parses; the engine bundle carries the MCP hook, the permission gate and the tool-history fix | 14 files + wiring |
+| **Unit** | MCP bridge: JSON & SSE transports, auth, pagination, session-expiry recovery, registry cache round-trip, secret redaction | 38 |
+| **Unit v2.1** | self-connect permission gate, API-key paths, the full OAuth dance against a mock authorization server (DCR → PKCE → exchange → refresh → callback), disconnect, persistence, redaction | 43 |
+| **E2E** | the real engine, real boot, real SQLite: Telegram message → model → `mcp_calc_add(19,23)` → answer "42" — then *connect a new server*: approval card → button click → OAuth login link → the daemon's own `/oauth/mcp/callback` → token stored → login-gated tool called end-to-end | 19 |
+
+No mocks-of-mocks: the E2E boots the actual `dist/portable.cjs` you'll upload, against a mock Telegram API, a mock OpenAI-compatible provider and a mock MCP server — then asserts on the traffic each of them saw.
+
 ## Engine specifications
 
 | Spec | Value |
@@ -204,6 +287,7 @@ Bot commands for humans: `/help` `/status` `/memory` `/tasks` `/about` `/cancel`
 | Hard run deadline | 6 hours per task (configurable) |
 | Outbound subrequest cap | 1,000,000 per run (configurable) |
 | Engine size | one ~1.2 MB prebuilt file + 492 KB QuickJS/WASM |
+| MCP transport | Streamable HTTP (JSON-RPC 2.0), session auto-renewal, registry cache for instant restarts |
 | `npm install` on the host | 0 packages (one optional fallback: `sql.js` on Node 18) |
 | Runtime | Node.js 18+ (22+ recommended) |
 
@@ -264,6 +348,10 @@ JINX_MODEL=gpt-4o-mini
 JINX_BRAND_NAME=Jinx Harness     # how the agent introduces itself
 JINX_MAKER_NAME=                 # optional "made by …"
 JINX_PERSONA=                    # optional full custom system prompt
+
+# v2 — MCP servers (optional, see docs/MCP.md)
+JINX_MCP_SERVERS=fetch=https://mcp.example.com/mcp
+JINX_MCP_AUTH_FETCH=Bearer …     # optional, per server
 ```
 
 **Factory reset:** delete `portable/.env` (and `portable/data/` if you also want the memory gone) — the one-time wizard unlocks again on the next visit.
@@ -276,7 +364,10 @@ JINX_PERSONA=                    # optional full custom system prompt
 - The daemon binds `127.0.0.1` only. In CGI mode a per-install setup key protects the wizard from neighbours on shared hosts; the key file is deleted after setup.
 - The admin panel requires a 64-hex token (`WEBHOOK_SECRET`) — rotate it any time.
 - No analytics, no update checks, no default endpoints. Search tools call public engines; the AI calls exactly the base URL you configured.
+- **MCP servers**: owner-configured ones live in a file on disk; ones the agent connects itself pass the 🔐 human approval card first (admin-only, block-until-decided, `JINX_MCP_ALLOW_CONNECT=0` kills the path). OAuth tokens and API keys are stored chmod-600, never logged, and tool output is capped before it enters the model context.
 - If your host ignores `.htaccess`, install the folder outside `public_html` and use Plan B/C. Never commit `portable/.env`.
+
+Full threat model — including what the MCP client deliberately does **not** trust — in **[SECURITY.md](SECURITY.md)**.
 
 <a id="plan-b--plan-c"></a>
 
@@ -287,9 +378,9 @@ JINX_PERSONA=                    # optional full custom system prompt
 **Plan C — VPS / local / systemd.**
 
 ```bash
-unzip jinx-harness-v1.0.0.zip -d jinx-harness && cd jinx-harness
+unzip jinx-harness-v2.1.0.zip -d jinx-harness && cd jinx-harness
 node app.js            # no config? the wizard binds 127.0.0.1:<port> — see console
-node app.js --check    # pre-flight self-test: files, secrets, Telegram, provider, disk
+node app.js --check    # pre-flight self-test: files, secrets, Telegram, provider, MCP, disk
 ```
 
 Run it under systemd/supervisor with `Restart=always` for production; it is a single long-lived Node process with SQLite storage.
@@ -320,15 +411,21 @@ Run it under systemd/supervisor with `Restart=always` for production; it is a si
 index.cgi           CGI entry (shell) — finds Node, execs gateway.cjs     [755]
 gateway.cjs         boots the daemon if needed, reverse-proxies requests
 app.js              startup: setup-mode vs full boot, env, fetch-shim hook
+mcp-bridge.cjs      MCP client — Streamable HTTP, registry cache, self-connect gate
+mcp-oauth.cjs       MCP OAuth (PKCE + DCR) for login-required servers
 setup-server.cjs    the one-time web wizard
 check.js            pre-flight self-test  (node app.js --check)
 fetch-shim.cjs      pure-JS fetch for memory-capped shared hosts
 keepalive.php       cron watchdog (PHP-only hosts)
 no-node.html        friendly page when no Node.js runtime is found
-dist/portable.cjs   the agent runtime — prebuilt bundle, ~1.2 MB
+dist/portable.cjs   the agent runtime — prebuilt bundle, ~1.2 MB (MCP-hooked)
 dist/quickjs-*.wasm real QuickJS engine for the run_js sandbox
+test/               offline test suite: unit (38) + E2E (11) + runner
 portable/           your data: .env, jinx.db, logs, backups  (not in git)
 docs/PROVIDERS.md   provider guide (فارسی)
+docs/MCP.md         MCP guide (فارسی) — servers, auth, timeouts
+SECURITY.md         threat model & reporting
+CHANGELOG.md        release notes
 assets/logo.svg     project logo
 ```
 
@@ -336,7 +433,7 @@ The agent runtime is distributed as a prebuilt CommonJS bundle; the original Typ
 
 ---
 
-*telegram ai agent · self-hosted llm agent · openai-compatible agent runtime · telegram bot with tools · ai agent for cpanel & shared hosting · quickjs sandbox · بات هوش مصنوعی تلگرام · ایجنت شخصی تلگرام · هوش مصنوعی روی هاست اشتراکی*
+*telegram ai agent · self-hosted llm agent · openai-compatible agent runtime · telegram bot with tools · mcp client · model context protocol · ai agent for cpanel & shared hosting · quickjs sandbox · بات هوش مصنوعی تلگرام · ایجنت شخصی تلگرام · هوش مصنوعی روی هاست اشتراکی*
 
 ## License
 

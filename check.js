@@ -47,7 +47,7 @@ function envMap() {
 
 async function main() {
   const env = envMap();
-  console.log('\n🩺 Jinx Harness v1.0.0 — pre-flight self-test\n' + '─'.repeat(52));
+  console.log('\n🩺 Jinx Harness v2.1.0 — pre-flight self-test\n' + '─'.repeat(52));
 
   // 1. Node
   const v = process.versions.node;
@@ -59,6 +59,19 @@ async function main() {
   // 2. Package files
   ok_or(fs.existsSync(path.join(ROOT, 'dist', 'portable.cjs')), 'Agent bundle (dist/portable.cjs)',
     fs.existsSync(path.join(ROOT, 'dist', 'portable.cjs')) ? fmtB(fs.statSync(path.join(ROOT, 'dist', 'portable.cjs')).size) : 'missing — incomplete upload');
+  const mcpOk = fs.existsSync(path.join(ROOT, 'mcp-bridge.cjs'));
+  const oauthOk = fs.existsSync(path.join(ROOT, 'mcp-oauth.cjs'));
+  if (mcpOk && oauthOk) ok('MCP bridge (mcp-bridge.cjs + mcp-oauth.cjs)', 'v2.1 client — plain / API-key / OAuth servers + agent self-connect');
+  else if (mcpOk) warn('MCP bridge (mcp-bridge.cjs)', 'mcp-oauth.cjs missing — login-required (OAuth) MCP servers unavailable');
+  else warn('MCP bridge (mcp-bridge.cjs)', 'missing — agent runs without MCP tools (v1 layout?)');
+  const v21 = fs.existsSync(path.join(ROOT, 'dist', 'portable.cjs')) &&
+    fs.readFileSync(path.join(ROOT, 'dist', 'portable.cjs'), 'utf8').includes('repairToolHistory');
+  if (v21) ok('Engine v2.1 patches', 'tool-history 400 fix + OAuth route + permission hook');
+  else warn('Engine v2.1 patches', 'dist/portable.cjs looks pre-2.1 — re-upload the bundle');
+  try {
+    const patched = fs.readFileSync(path.join(ROOT, 'dist', 'portable.cjs'), 'utf8').includes('mcp-bridge.cjs');
+    ok_or(patched, 'MCP bridge wired into engine', patched ? '' : 'bundle is pre-v2 — re-upload dist/portable.cjs');
+  } catch { /* bundle already reported */ }
   const wasm = fs.existsSync(path.join(ROOT, 'dist')) &&
     fs.readdirSync(path.join(ROOT, 'dist')).find((f) => /^quickjs.*\.wasm$/.test(f));
   if (wasm) ok('QuickJS/WASM engine (run_js)', wasm);
@@ -140,7 +153,69 @@ async function main() {
     }
   }
 
-  // 8. Disk space
+  // 8. MCP servers (only if configured)
+  const mcpServers = [];
+  try {
+    const j = JSON.parse(fs.readFileSync(path.join(ROOT, 'portable', 'mcp.json'), 'utf8'));
+    if (j && Array.isArray(j.servers)) {
+      for (const s of j.servers) {
+        if (s && s.url && s.enabled !== false) mcpServers.push({ name: s.name || 'srv', url: s.url, auth: s.auth, headers: s.headers });
+      }
+    }
+  } catch { /* no mcp.json */ }
+  if (env.JINX_MCP_SERVERS) {
+    for (const part of String(env.JINX_MCP_SERVERS).split(/[\n,]+/)) {
+      const t = part.trim();
+      if (!t || t.startsWith('#')) continue;
+      let name = '', url = t;
+      const eq = t.indexOf('=');
+      if (eq > 0 && /^https?:\/\//i.test(t.slice(eq + 1).trim())) { name = t.slice(0, eq).trim(); url = t.slice(eq + 1).trim(); }
+      if (!/^https?:\/\//i.test(url)) continue;
+      if (!name) { try { name = new URL(url).hostname.split('.')[0]; } catch { name = 'srv'; } }
+      mcpServers.push({ name, url, auth: env['JINX_MCP_AUTH_' + name.toUpperCase()] });
+    }
+  }
+  if (mcpServers.length) {
+    for (const s of mcpServers.slice(0, 5)) {
+      try {
+        const t0 = Date.now();
+        const init = await fetch(s.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json, text/event-stream',
+            ...(s.auth ? { Authorization: s.auth } : {}),
+            ...(s.headers || {}),
+          },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'jinx-harness-check', version: '2.0.0' } } }),
+          signal: AbortSignal.timeout(Number(env.JINX_MCP_TIMEOUT_MS) || 15_000),
+        });
+        if (!init.ok) { bad('MCP server “' + s.name + '”', 'HTTP ' + init.status + ' — ' + s.url); continue; }
+        const sessionId = init.headers.get('mcp-session-id') || undefined;
+        const list = await fetch(s.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json, text/event-stream',
+            ...(s.auth ? { Authorization: s.auth } : {}),
+            ...(s.headers || {}),
+            ...(sessionId ? { 'Mcp-Session-Id': sessionId } : {}),
+          },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
+          signal: AbortSignal.timeout(Number(env.JINX_MCP_TIMEOUT_MS) || 15_000),
+        });
+        const j2 = await list.json().catch(() => ({}));
+        const n = j2 && j2.result && Array.isArray(j2.result.tools) ? j2.result.tools.length : 0;
+        ok('MCP server “' + s.name + '”', n + ' tool(s) • ' + (Date.now() - t0) + 'ms');
+      } catch (e) {
+        bad('MCP server “' + s.name + '”', String(e.message || e));
+      }
+    }
+  } else {
+    ok('MCP servers', 'none configured (optional — see docs/MCP.md)');
+  }
+
+  // 9. Disk space
   try {
     const st = fs.statfsSync(dataDir);
     const free = Number(st.bavail) * Number(st.bsize);

@@ -1,7 +1,7 @@
 {
   "name": "jinx-harness",
-  "version": "1.0.0",
-  "description": "Give any model hands. Self-hosted 24/7 Telegram agent runtime — bring your own OpenAI-compatible provider, deploy to shared hosting with one zip and a one-time web wizard. No build, no npm install, no telemetry.",
+  "version": "2.1.0",
+  "description": "Give any model hands. Self-hosted 24/7 Telegram agent runtime with a built-in MCP client — bring any OpenAI-compatible provider, connect any Model Context Protocol server (plain, API-key or OAuth login), let the agent connect new servers itself with a human permission gate, deploy to shared hosting with one zip and a one-time web wizard. No build, no npm install, no telemetry.",
   "main": "app.js",
   "license": "MIT",
   "private": false,
@@ -10,7 +10,8 @@
   },
   "scripts": {
     "start": "node app.js",
-    "check": "node app.js --check"
+    "check": "node app.js --check",
+    "test": "node test/run-all.cjs"
   },
   "optionalDependencies": {
     "sql.js": "^1.13.0"
@@ -19,6 +20,9 @@
     "telegram-bot",
     "ai-agent",
     "agent-runtime",
+    "mcp",
+    "model-context-protocol",
+    "mcp-client",
     "openai-compatible",
     "self-hosted",
     "cpanel",

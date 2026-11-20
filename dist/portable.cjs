@@ -1949,7 +1949,7 @@ function fallbackProvider(env) {
   return { baseUrl: String(url).replace(/\/+$/, ""), apiKey: String(key), model: String(model) };
 }
 function failoverable(e) {
-  if (e instanceof ProviderError) return true;
+  if (e instanceof ProviderError) return !(e.status === 400 && /tool (call|message)/i.test(String(e.body || "")));
   if (e instanceof StreamFailure) return e.kind === "network" || e.kind === "idle";
   return false;
 }
@@ -3668,7 +3668,7 @@ draw();
     chatLabel, listMyChats, userMode,
     /* v3 */
     applyMigrationsV3, virtualPage: secVirtualPage, browseFetch: secBrowseFetch,
-    guestMemorySave, guestMemoriesFor, dmTools, dmOnCallback
+    guestMemorySave, guestMemoriesFor, dmTools, dmOnCallback, requestApproval
   };
 })();
 
@@ -3850,16 +3850,45 @@ function jinxPoolFail(env, k, e) {
   else ms = 15000;
   k.cooldownUntil = Date.now() + ms;
 }
+var repairToolHistory = function (list) {
+  if (!Array.isArray(list)) return list;
+  var out = [];
+  for (var i = 0; i < list.length; i++) {
+    var m = list[i];
+    if (m && m.role === "assistant" && Array.isArray(m.tool_calls) && m.tool_calls.length) {
+      out.push(m);
+      var answered = {};
+      var j = i + 1;
+      while (j < list.length && list[j] && list[j].role === "tool") {
+        var tm = list[j];
+        if (tm.tool_call_id && !answered[tm.tool_call_id]) {
+          answered[tm.tool_call_id] = true;
+          out.push(tm.content == null || tm.content === "" ? { ...tm, content: "(no output)" } : tm);
+        }
+        j++;
+      }
+      for (var k2 = 0; k2 < m.tool_calls.length; k2++) {
+        var tc = m.tool_calls[k2];
+        if (tc && tc.id && !answered[tc.id]) out.push({ role: "tool", tool_call_id: tc.id, content: "(result unavailable)" });
+      }
+      i = j - 1;
+      continue;
+    }
+    if (m && m.role === "tool") continue;
+    out.push(m);
+  }
+  return out;
+};
 function buildBody(env, req, model) {
   const body = {
     model,
-    messages: jinxInjectIdentity(req.messages.map((m) => {
+    messages: jinxInjectIdentity(repairToolHistory(req.messages.map((m) => {
       const out = { role: m.role, content: m.content };
       if (m.tool_calls) out.tool_calls = m.tool_calls;
       if (m.tool_call_id) out.tool_call_id = m.tool_call_id;
       if (m.name) out.name = m.name;
       return out;
-    }), jinxAliasOf(env))
+    })), jinxAliasOf(env))
   };
   if (req.tools?.length) body.tools = req.tools;
   if (req.stream) { body.stream = true; body.stream_options = { include_usage: true }; }
@@ -15952,6 +15981,11 @@ var init_tools = __esm({
       "list_files",
       "search_code"
     ]);
+    // ── Jinx v2: MCP bridge (Model Context Protocol client) ──────────────
+    // Loads <root>/mcp-bridge.cjs if present; registers every tool from the
+    // owner-configured MCP servers as mcp_<server>_<tool>. Failure is
+    // non-fatal: the agent keeps its built-in toolset untouched.
+    try { require("../mcp-bridge.cjs").install({ ALL_TOOLS, BY_NAME, sec: { requestApproval: (c, n, a) => JinxSec.requestApproval(c, n, a) } }); } catch (e) { console.warn("[jinx-harness] MCP bridge skipped:", (e && e.message) || e); }
   }
 });
 
@@ -16369,7 +16403,11 @@ async function runAgent(env, req) {
         }
       }
       if (cut > 0) packed = [packed[0], ...packed.slice(cut)];
-      while (jsonLen() > 9e4 && packed.length > 21) packed = [packed[0], ...packed.slice(-20)];
+      if (jsonLen() > 9e4 && packed.length > 21) {
+        let start = Math.max(1, packed.length - 20);
+        while (start < packed.length - 1 && packed[start] && packed[start].role === "tool") start++;
+        if (packed[start] && packed[start].role !== "tool") packed = [packed[0], ...packed.slice(start)];
+      }
     }
     const files = [];
     let budget = 11e4 - jsonLen();
@@ -20865,6 +20903,11 @@ async function startIngestion(opts) {
         res.end((process.env.JINX_BRAND_NAME || "Jinx Harness") + " (portable) is running. Health: /health");
         return;
       }
+      if (p && p.startsWith("/oauth/mcp/")) {
+        try { await require("../mcp-oauth.cjs").http(env, req, res, u, p); }
+        catch (e3) { res.statusCode = 500; res.setHeader("Content-Type", "text/plain; charset=utf-8"); res.end("mcp-oauth error: " + String(e3 && e3.message || e3)); }
+        return;
+      }
       if (p && p.startsWith("/oauth/")) {
         await JinxSec.oauthHttp(env, req, res, u, p);
         return;
@@ -21099,7 +21142,7 @@ process.on("SIGINT", () => graceful("SIGINT"));
 process.on("SIGTERM", () => graceful("SIGTERM"));
 
 // src/portable/entry.ts
-var VERSION = "9.3.0-oss";
+var VERSION = "9.3.1-oss";
 var MIGRATIONS = [
   ["0001_init.sql", init_default],
   ["0002_slots.sql", slots_default],

@@ -1,0 +1,13 @@
+{
+  "_comment": "Jinx Harness v2 — advanced MCP configuration. Copy to portable/mcp.json. Simple setups: just set JINX_MCP_SERVERS in portable/.env instead. Guide (فارسی): docs/MCP.md",
+  "servers": [
+    {
+      "name": "example",
+      "url": "https://mcp.example.com/mcp",
+      "auth": "Bearer your-token-if-needed",
+      "headers": { "X-Api-Key": "only-if-the-server-needs-it" },
+      "enabled": true,
+      "timeoutMs": 30000
+    }
+  ]
+}
