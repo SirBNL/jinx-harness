@@ -2812,9 +2812,9 @@ draw();
   }
 
   function htmlPage(title, body) {
-    return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title></head>` +
-      `<body style="background:#0b1020;color:#e8ecf8;font-family:Tahoma,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">` +
-      `<div style="text-align:center;direction:rtl"><div style="font-size:42px">${body.ok ? "✅" : "⚠️"}</div><h3>${title}</h3><p style="opacity:.6">${body.msg || ""}</p></div></body></html>`;
+    // plain text on purpose: cPanel's WAF strips meta-charset fragments from
+    // per-file uploads, and callers already send charset in Content-Type.
+    return (body && body.ok ? "✅ " : "⚠️ ") + title + "\n\n" + ((body && body.msg) || "") + "\n\n— Jinx";
   }
 
   async function oauthHttp(env, req, res, u, p) {

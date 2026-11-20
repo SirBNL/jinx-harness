@@ -346,11 +346,11 @@ function tokenStatus() {
 }
 
 // ── HTTP surface (served by the daemon at /oauth/mcp/*) ────────────────────
+// NOTE: responses are PLAIN TEXT on purpose — cPanel's upload WAF strips
+// HTML charset declarations (even split or inside comments!) out of uploaded
+// files, which once broke byte-exact verification. No tags → nothing to strip.
 function page(title, body, ok) {
-  return '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<title>' + title + '</title><body style="background:#0b1020;color:#e8ecf8;font:15px/1.8 Vazirmatn,Tahoma,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;direction:rtl">' +
-    '<div style="max-width:480px;text-align:center;padding:24px"><div style="font-size:46px">' + (ok ? '✅' : '⚠️') + '</div>' +
-    '<h3 style="margin:12px 0">' + title + '</h3><p style="opacity:.8">' + body + '</p></div></body>';
+  return (ok ? '✅ ' : '⚠️ ') + title + '\n\n' + body + '\n\n— Jinx Harness';
 }
 
 async function http(env, req, res, u, p) {
@@ -368,20 +368,20 @@ async function http(env, req, res, u, p) {
   const state = u.searchParams.get('state');
   const err = u.searchParams.get('error');
   if (err) {
-    res.statusCode = 200; res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.statusCode = 200; res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.end(page('اتصال رد شد', 'سرور احراز هویت اجازه نداد: ' + String(err).slice(0, 120) + ' — می‌توانی دوباره از ربات درخواست اتصال بکنی.', false));
     return;
   }
   if (!code || !state) {
-    res.statusCode = 400; res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.statusCode = 400; res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.end(page('پاسخ ناقص', 'این آدرس فقط برای بازگشت جریان OAuth سرورهای MCP است.', false));
     return;
   }
   const r = await completeWithState(state, code);
   res.statusCode = 200;
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
   if (r.ok) {
-    res.end(page('اتصال برقرار شد ✓', 'سرور <b style="direction:ltr">' + String(r.server).slice(0, 60) + '</b> متصل شد. به تلگرام برگرد و از ایجنت بخواه ابزارها را فهرست کند (mcp_servers).', true));
+    res.end(page('اتصال برقرار شد ✓', 'سرور ' + String(r.server).slice(0, 60) + ' متصل شد. به تلگرام برگرد و از ایجنت بخواه ابزارها را فهرست کند (mcp_servers).', true));
   } else {
     res.end(page('اتصال کامل نشد', String(r.error).slice(0, 300), false));
   }
